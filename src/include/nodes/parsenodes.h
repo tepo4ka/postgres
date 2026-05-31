@@ -2807,6 +2807,7 @@ typedef enum ConstrType			/* types of constraints */
 	CONSTR_ATTR_IMMEDIATE,
 	CONSTR_ATTR_ENFORCED,
 	CONSTR_ATTR_NOT_ENFORCED,
+	CONSTR_ATTR_OPTIONS,		/* column reloptions */
 } ConstrType;
 
 /* Foreign key action codes */

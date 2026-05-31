@@ -381,6 +381,15 @@ static relopt_int intRelOpts[] =
 		},
 		-1, 0, 1024
 	},
+	{
+		{
+			"low_cardinality",
+			"Hint about the number of distinct values appearing in a column",
+			RELOPT_KIND_ATTRIBUTE,
+			ShareUpdateExclusiveLock
+		},
+		0, 0, INT_MAX
+	},
 
 	/* list terminator */
 	{{NULL}}
@@ -2106,7 +2115,8 @@ attribute_reloptions(Datum reloptions, bool validate)
 {
 	static const relopt_parse_elt tab[] = {
 		{"n_distinct", RELOPT_TYPE_REAL, offsetof(AttributeOpts, n_distinct)},
-		{"n_distinct_inherited", RELOPT_TYPE_REAL, offsetof(AttributeOpts, n_distinct_inherited)}
+		{"n_distinct_inherited", RELOPT_TYPE_REAL, offsetof(AttributeOpts, n_distinct_inherited)},
+		{"low_cardinality", RELOPT_TYPE_INT, offsetof(AttributeOpts, low_cardinality)}
 	};
 
 	return (bytea *) build_reloptions(reloptions, validate,

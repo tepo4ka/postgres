@@ -959,6 +959,34 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 				/* transformConstraintAttrs took care of these */
 				break;
 
+			case CONSTR_ATTR_OPTIONS:
+				{
+					/*
+					 * Inspiration: column->fdwoptions.
+					 *
+					 * Generate ALTER TABLE ALTER COLUMN statment to add
+					 * attoption to this column after creation.
+					 */
+					AlterTableStmt *stmt;
+					AlterTableCmd *cmd;
+
+					cmd = makeNode(AlterTableCmd);
+					cmd->subtype = AT_SetOptions;
+					cmd->name = column->colname;
+					cmd->def = (Node *) constraint->options;
+					cmd->behavior = DROP_RESTRICT;
+					cmd->missing_ok = false;
+
+					stmt = makeNode(AlterTableStmt);
+					stmt->relation = cxt->relation;
+					stmt->objtype = OBJECT_COLUMN;
+					stmt->cmds = NIL;
+					stmt->cmds = lappend(stmt->cmds, cmd);
+
+					cxt->alist = lappend(cxt->alist, stmt);
+					break;
+				}
+
 			default:
 				elog(ERROR, "unrecognized constraint type: %d",
 					 constraint->contype);

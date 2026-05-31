@@ -327,6 +327,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 %type <list>	alter_table_cmds alter_type_cmds
 %type <list>    alter_identity_column_option_list
 %type <defelt>  alter_identity_column_option
+%type <defelt>  lowcardinality_option
 %type <node>	set_statistics_value
 %type <str>		set_access_method_name
 
@@ -704,7 +705,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 	BACKWARD BEFORE BEGIN_P BETWEEN BIGINT BINARY BIT
 	BOOLEAN_P BOTH BREADTH BY
 
-	CACHE CALL CALLED CASCADE CASCADED CASE CAST CATALOG_P CHAIN CHAR_P
+	CACHE CALL CALLED CASCADE CASCADED CASE CAST CATALOG_P CARDINALITY CHAIN CHAR_P
 	CHARACTER CHARACTERISTICS CHECK CHECKPOINT CLASS CLOSE
 	CLUSTER COALESCE COLLATE COLLATION COLUMN COLUMNS COMMENT COMMENTS COMMIT
 	COMMITTED COMPRESSION CONCURRENTLY CONDITIONAL CONFIGURATION CONFLICT
@@ -741,7 +742,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 
 	LABEL LANGUAGE LARGE_P LAST_P LATERAL_P
 	LEADING LEAKPROOF LEAST LEFT LEVEL LIKE LIMIT LISTEN LOAD LOCAL
-	LOCALTIME LOCALTIMESTAMP LOCATION LOCK_P LOCKED LOGGED
+	LOCALTIME LOCALTIMESTAMP LOCATION LOCK_P LOCKED LOGGED LOW
 
 	MAPPING MATCH MATCHED MATERIALIZED MAXVALUE MERGE MERGE_ACTION METHOD
 	MINUTE_P MINVALUE MODE MONTH_P MOVE
@@ -2515,6 +2516,16 @@ alter_table_cmd:
 					n->def = (Node *) $5;
 					$$ = (Node *) n;
 				}
+			/* ALTER TABLE <name> ALTER [COLUMN] <colname> SET LOW CARDINALITY value */
+			| ALTER opt_column ColId SET lowcardinality_option
+				{
+					AlterTableCmd *n = makeNode(AlterTableCmd);
+
+					n->subtype = AT_SetOptions;
+					n->name = $3;
+					n->def = (Node *) list_make1($5);
+					$$ = (Node *) n;
+				}
 			/* ALTER TABLE <name> ALTER [COLUMN] <colname> RESET ( column_parameter [, ... ] ) */
 			| ALTER opt_column ColId RESET reloptions
 				{
@@ -2523,6 +2534,16 @@ alter_table_cmd:
 					n->subtype = AT_ResetOptions;
 					n->name = $3;
 					n->def = (Node *) $5;
+					$$ = (Node *) n;
+				}
+			/* ALTER TABLE <name> ALTER [COLUMN] <colname> RESET LOW CARDINALITY */
+			| ALTER opt_column ColId RESET lowcardinality_option
+				{
+					AlterTableCmd *n = makeNode(AlterTableCmd);
+
+					n->subtype = AT_ResetOptions;
+					n->name = $3;
+					n->def = (Node *) list_make1($5);
 					$$ = (Node *) n;
 				}
 			/* ALTER TABLE <name> ALTER [COLUMN] <colname> SET STORAGE <storagemode> */
@@ -3096,6 +3117,17 @@ reloption_elem:
 			| ColLabel '.' ColLabel
 				{
 					$$ = makeDefElemExtended($1, $3, NULL, DEFELEM_UNSPEC, @1);
+				}
+		;
+
+lowcardinality_option:
+			LOW CARDINALITY Iconst
+				{
+					$$ = makeDefElem("low_cardinality", (Node *) makeInteger($3), @1);
+				}
+			| LOW CARDINALITY
+				{
+					$$ = makeDefElem("low_cardinality", NULL, @1);
 				}
 		;
 
@@ -3897,6 +3929,16 @@ opt_column_storage:
 
 ColQualList:
 			ColQualList ColConstraint				{ $$ = lappend($1, $2); }
+			| ColQualList lowcardinality_option
+				{
+					Constraint *n = makeNode(Constraint);
+
+					n->contype = CONSTR_ATTR_OPTIONS;
+					n->location = @2;
+					n->options = list_make1($2);
+
+					$$ = lappend($1, (Node *) n);
+				}
 			| /*EMPTY*/								{ $$ = NIL; }
 		;
 
@@ -17710,6 +17752,7 @@ unreserved_keyword:
 			| CACHE
 			| CALL
 			| CALLED
+			| CARDINALITY
 			| CASCADE
 			| CASCADED
 			| CATALOG_P
@@ -17834,6 +17877,7 @@ unreserved_keyword:
 			| LOCK_P
 			| LOCKED
 			| LOGGED
+			| LOW
 			| MAPPING
 			| MATCH
 			| MATCHED
@@ -18265,6 +18309,7 @@ bare_label_keyword:
 			| CACHE
 			| CALL
 			| CALLED
+			| CARDINALITY
 			| CASCADE
 			| CASCADED
 			| CASE
@@ -18449,6 +18494,7 @@ bare_label_keyword:
 			| LOCK_P
 			| LOCKED
 			| LOGGED
+			| LOW
 			| MAPPING
 			| MATCH
 			| MATCHED
