@@ -45,7 +45,8 @@ Access to the Postgres source tree is required to copy the original grammar and
 keyword list, as well as helper Perl scripts. It would be possible to add
 keywords truly dynamically (without replacing scanner token tables, for example
 add_keyword("low")) by changing the perfect hashing function to a dynamic one:
-current hash function is generated at the compile time.
+current hash function is generated at the compile time. Note that only the
+grammar is replaced; the core scanner is used with modified tables.
 
 Note that only parser will be aware of the new keywords, as (internal) kwlist.h
 is included in several other places. As of Postgres 18 this affects
