@@ -31,6 +31,11 @@ static char *str_udeescape(const char *str, char escape,
 						   int position, core_yyscan_t yyscanner);
 
 
+Parser_hook_type Parser_hook = NULL;
+
+ScanKeywordList const *ScanKeywords_hook = NULL;
+uint16 const *ScanKeywordTokens_hook = NULL;
+
 /*
  * raw_parser
  *		Given a query in string form, do lexical and grammatical analysis.
@@ -46,8 +51,10 @@ raw_parser(const char *str, RawParseMode mode)
 	int			yyresult;
 
 	/* initialize the flex scanner */
-	yyscanner = scanner_init(str, &yyextra.core_yy_extra,
-							 &ScanKeywords, ScanKeywordTokens);
+	ScanKeywordList const *kwlist = ScanKeywords_hook ? ScanKeywords_hook : &ScanKeywords;
+	uint16 const *kwtokens = ScanKeywordTokens_hook ? ScanKeywordTokens_hook : ScanKeywordTokens;
+
+	yyscanner = scanner_init(str, &yyextra.core_yy_extra, kwlist, kwtokens);
 
 	/* base_yylex() only needs us to initialize the lookahead token, if any */
 	if (mode == RAW_PARSE_DEFAULT)
@@ -74,7 +81,7 @@ raw_parser(const char *str, RawParseMode mode)
 	parser_init(&yyextra);
 
 	/* Parse! */
-	yyresult = base_yyparse(yyscanner);
+	yyresult = Parser_hook ? (*Parser_hook) (yyscanner) : base_yyparse(yyscanner);
 
 	/* Clean up (release memory) */
 	scanner_finish(yyscanner);

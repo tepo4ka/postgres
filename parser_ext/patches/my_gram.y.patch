@@ -1,0 +1,57 @@
++++ my_gram.y	2026-06-18 19:05:58.717679119 +0300
+--- my_gram.y	2026-06-18 19:04:24.842590466 +0300
+@@ -54,7 +54,7 @@
+ #include "catalog/pg_trigger.h"
+ #include "commands/defrem.h"
+ #include "commands/trigger.h"
+-#include "gramparse.h"
++#include "my_gramparse.h"
+ #include "nodes/makefuncs.h"
+ #include "nodes/nodeFuncs.h"
+ #include "parser/parser.h"
+@@ -150,7 +150,7 @@
+ #define parser_yyerror(msg)  scanner_yyerror(msg, yyscanner)
+ #define parser_errposition(pos)  scanner_errposition(pos, yyscanner)
+ 
+-static void base_yyerror(YYLTYPE *yylloc, core_yyscan_t yyscanner,
++static void my_yyerror(YYLTYPE *yylloc, core_yyscan_t yyscanner,
+ 						 const char *msg);
+ static RawStmt *makeRawStmt(Node *stmt, int stmt_location);
+ static void updateRawStmtEnd(RawStmt *rs, int end_location);
+@@ -209,12 +209,17 @@
+ 
+ %pure-parser
+ %expect 0
+-%name-prefix="base_yy"
++%name-prefix="my_yy"
+ %locations
+ 
+ %parse-param {core_yyscan_t yyscanner}
+ %lex-param   {core_yyscan_t yyscanner}
+ 
++%code top {
++/* Use the core lexer */
++#define my_yylex base_yylex
++}
++
+ %union
+ {
+ 	core_YYSTYPE core_yystype;
+@@ -18689,7 +18689,7 @@
+  * available from the scanner.
+  */
+ static void
+-base_yyerror(YYLTYPE *yylloc, core_yyscan_t yyscanner, const char *msg)
++my_yyerror(YYLTYPE *yylloc, core_yyscan_t yyscanner, const char *msg)
+ {
+ 	parser_yyerror(msg);
+ }
+@@ -19722,7 +19722,7 @@
+  * Initialize to parse one query string
+  */
+ void
+-parser_init(base_yy_extra_type *yyext)
++parser_init(my_yy_extra_type *yyext)
+ {
+ 	yyext->parsetree = NIL;		/* in case grammar forgets to set it */
+ }

@@ -1,0 +1,69 @@
+parser_ext/README
+
+Postgres Parser Extension
+=========================
+
+This is a skeleton for the experimental Postgres parser extension module.
+
+In order to use it:
+
+1. Run bootstrap.sh specifying Postgres source and install path and the module
+output path. Note that access to the Postgres source tree is required. You may
+want to update module name and description in the generated Makefile and
+parser_ext.c
+
+   PGSRC=/path/to/postgres/   \
+   PGSQL=/path/to/pgsql/      \
+   OUTDIR=/path/to/parser_ext \
+   ./bootstrap.sh
+
+2. In the generated module source tree update the my_kwlist.h and my_gram.y as
+usual. Beware that the whole parser will be replaced, so make sure not to break
+the core syntax.
+
+3. Compile the module by running make.
+
+4. Load the module as a shared library file.
+
+   LOAD '/path/to/module/parser_ext.so'
+
+You may find an example of the parser extension module in the lowcard_ext.
+
+At present, only one parser extension can be registered per session. As sessions
+may load different sets of modules, each session may end up using a different
+parser.
+
+Design
+------
+
+We rely on the well-established hooks system to replace the parser function and
+scanner token tables. The parser function is generated from the modified
+grammar, and token tables are generated from the modified kwlist.h. Because of
+this any changes to either of them must be limited to additions.
+
+Access to the Postgres source tree is required to copy the original grammar and
+keyword list, as well as helper Perl scripts. It would be possible to add
+keywords truly dynamically (without replacing scanner token tables, for example
+add_keyword("low")) by changing the perfect hashing function to a dynamic one:
+current hash function is generated at the compile time.
+
+Note that only parser will be aware of the new keywords, as (internal) kwlist.h
+is included in several other places. As of Postgres 18 this affects
+pg_get_keywords() function, psql's tab-completion, deparsing of internal queries
+and representations (e.g. pg_get_viewdef()) and frontend utilities such as
+pg_dump.
+
+Future ideas
+------------
+
+* Add hooks for more processing functions from the src/backed/parser.
+
+* Add support for the syntax sugar: construct the statement in-place and append
+it to the "after list" of statements.
+
+* Support multiple parsers per session.
+
+
+;; Local Variables:
+;; fill-column: 80
+;; End:

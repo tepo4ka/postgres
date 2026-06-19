@@ -16,8 +16,8 @@
  *-------------------------------------------------------------------------
  */
 
-#ifndef GRAMPARSE_H
-#define GRAMPARSE_H
+#ifndef MY_GRAMPARSE_H
+#define MY_GRAMPARSE_H
 
 #include "nodes/parsenodes.h"
 #include "parser/scanner.h"
@@ -26,13 +26,13 @@
  * NB: include gram.h only AFTER including scanner.h, because scanner.h
  * is what #defines YYLTYPE.
  */
-#include "gram.h"
+#include "my_gram.h"
 
 /*
  * The YY_EXTRA data that a flex scanner allows us to pass around.  Private
  * state needed for raw parsing/lexing goes here.
  */
-typedef struct base_yy_extra_type
+typedef struct my_yy_extra_type
 {
 	/*
 	 * Fields used by the core scanner.
@@ -53,7 +53,7 @@ typedef struct base_yy_extra_type
 	 * State variables that belong to the grammar.
 	 */
 	List	   *parsetree;		/* final parse result is delivered here */
-} base_yy_extra_type;
+}			my_yy_extra_type;
 
 /*
  * In principle we should use yyget_extra() to fetch the yyextra field
@@ -61,7 +61,7 @@ typedef struct base_yy_extra_type
  * and this is sufficiently performance-critical to make it seem worth
  * cheating a bit to use an inline macro.
  */
-#define pg_yyget_extra(yyscanner) (*((base_yy_extra_type **) (yyscanner)))
+#define pg_yyget_extra(yyscanner) (*((my_yy_extra_type **) (yyscanner)))
 
 
 /* from parser.c */
@@ -69,8 +69,8 @@ extern int	base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp,
 					   core_yyscan_t yyscanner);
 
 /* from gram.y */
-extern void parser_init(base_yy_extra_type *yyext);
-extern int	base_yyparse(core_yyscan_t yyscanner);
+extern void parser_init(my_yy_extra_type * yyext);
+extern int	my_yyparse(core_yyscan_t yyscanner);
 
 typedef int (*Parser_hook_type) (core_yyscan_t yyscanner);
 extern PGDLLIMPORT Parser_hook_type Parser_hook;
@@ -78,4 +78,4 @@ extern PGDLLIMPORT Parser_hook_type Parser_hook;
 extern PGDLLIMPORT ScanKeywordList const *ScanKeywords_hook;
 extern PGDLLIMPORT uint16 const *ScanKeywordTokens_hook;
 
-#endif							/* GRAMPARSE_H */
+#endif							/* MY_GRAMPARSE_H */
