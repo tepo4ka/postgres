@@ -17622,14 +17622,7 @@ plassign_equals: COLON_EQUALS
 
 syntax_extension_block: SYNTAX EXTENSION opt_parser_name '(' Sconst ')'
 				{
-				  /* SyntaxBlock *b = makeNode(SyntaxBlock); */
-
-				  /* b->parser_name = $3; */
-				  /* b->source_text = $5; */
-				  /* b->location = @1; */
-				  /* $$ = (Node *) b; */
-				  Node *result = $3 == NULL ? parse_any($5) : parse_with($5, $3);
-				  $$ = result;
+				  $$ = $3 == NULL ? parse_any($5) : parse_with($5, $3);
 				}
 		;
 

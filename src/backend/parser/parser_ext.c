@@ -10,6 +10,18 @@ typedef struct ParserEntry {
 static List *parser_registry = NIL;
 
 void RegisterParser(char const *name, user_parser fn) {
+  ListCell *lc;
+
+  foreach (lc, parser_registry) {
+    ParserEntry *e = lfirst(lc);
+
+    if (strcmp(e->name, name) == 0) {
+      ereport(WARNING, (errmsg("replacing existing parser registration for \"%s\"", name)));
+      e->fn = fn;
+      return;
+    }
+  }
+
   ParserEntry *e = palloc(sizeof(ParserEntry));
 
   e->name = pstrdup(name);
@@ -27,7 +39,7 @@ Node *parse_with(char const *str, char const *name) {
       return e->fn(str);
   }
 
-  elog(ERROR, "unknown parser: %s", name);
+  ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("unknown parser: %s", name)));
   return NULL;
 }
 
@@ -41,6 +53,7 @@ Node *parse_any(char const *str) {
       return result;
   }
 
-  elog(ERROR, "no parser succeded");
+  ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
+                  errmsg("none of the available parsers could parse the input")));
   return NULL;
 }
