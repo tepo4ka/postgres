@@ -19,6 +19,7 @@ backend_sources += files(
   'parse_target.c',
   'parse_type.c',
   'parse_utilcmd.c',
+  'parser_ext.c',
   'scansup.c',
 )
 

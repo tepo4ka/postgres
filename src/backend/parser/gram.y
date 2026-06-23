@@ -58,6 +58,7 @@
 #include "nodes/makefuncs.h"
 #include "nodes/nodeFuncs.h"
 #include "parser/parser.h"
+#include "parser/parser_ext.h"
 #include "utils/datetime.h"
 #include "utils/xml.h"
 
@@ -620,6 +621,9 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 %type <list>	xml_namespace_list
 %type <target>	xml_namespace_el
 
+%type <node>	syntax_extension_block
+%type <str>	opt_parser_name
+
 %type <node>	func_application func_expr_common_subexpr
 %type <node>	func_expr func_expr_windowless
 %type <node>	common_table_expr
@@ -772,7 +776,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 	SERIALIZABLE SERVER SESSION SESSION_USER SET SETS SETOF SHARE SHOW
 	SIMILAR SIMPLE SKIP SMALLINT SNAPSHOT SOME SOURCE SQL_P STABLE STANDALONE_P
 	START STATEMENT STATISTICS STDIN STDOUT STORAGE STORED STRICT_P STRING_P STRIP_P
-	SUBSCRIPTION SUBSTRING SUPPORT SYMMETRIC SYSID SYSTEM_P SYSTEM_USER
+	SUBSCRIPTION SUBSTRING SUPPORT SYMMETRIC SYNTAX SYSID SYSTEM_P SYSTEM_USER
 
 	TABLE TABLES TABLESAMPLE TABLESPACE TARGET TEMP TEMPLATE TEMPORARY TEXT_P THEN
 	TIES TIME TIMESTAMP TO TRAILING TRANSACTION TRANSFORM
@@ -1104,6 +1108,7 @@ stmt:
 			| RuleStmt
 			| SecLabelStmt
 			| SelectStmt
+			| syntax_extension_block
 			| TransactionStmt
 			| TruncateStmt
 			| UnlistenStmt
@@ -17615,6 +17620,23 @@ plassign_equals: COLON_EQUALS
 			| '='
 		;
 
+syntax_extension_block: SYNTAX EXTENSION opt_parser_name '(' Sconst ')'
+				{
+				  /* SyntaxBlock *b = makeNode(SyntaxBlock); */
+
+				  /* b->parser_name = $3; */
+				  /* b->source_text = $5; */
+				  /* b->location = @1; */
+				  /* $$ = (Node *) b; */
+				  Node *result = $3 == NULL ? parse_any($5) : parse_with($5, $3);
+				  $$ = result;
+				}
+		;
+
+opt_parser_name:
+			Sconst									{ $$ = $1; }
+			| /* EMPTY */							{ $$ = NULL; }
+		;
 
 /*
  * Name classification hierarchy.
@@ -18197,6 +18219,7 @@ reserved_keyword:
 			| SESSION_USER
 			| SOME
 			| SYMMETRIC
+			| SYNTAX
 			| SYSTEM_USER
 			| TABLE
 			| THEN
@@ -18606,6 +18629,7 @@ bare_label_keyword:
 			| SUBSTRING
 			| SUPPORT
 			| SYMMETRIC
+			| SYNTAX
 			| SYSID
 			| SYSTEM_P
 			| SYSTEM_USER
