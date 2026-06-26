@@ -456,6 +456,7 @@ ColumnCompareData
 ColumnDef
 ColumnIOData
 ColumnRef
+ColumnExtensionContext
 ColumnsHashData
 CombinationGenerator
 ComboCidEntry
@@ -2092,6 +2093,7 @@ ParsedLex
 ParsedScript
 ParsedText
 ParsedWord
+ParserEntry
 ParserSetupHook
 ParserState
 PartClauseInfo
@@ -2906,6 +2908,8 @@ SyncRequestHandler
 SyncRequestType
 SyncStandbySlotsConfigData
 SyncingTablesState
+SyntaxExtension
+SyntaxExtensionParser
 SysFKRelationship
 SysScanDesc
 SyscacheCallbackFunction

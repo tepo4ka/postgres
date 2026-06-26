@@ -621,7 +621,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 %type <list>	xml_namespace_list
 %type <target>	xml_namespace_el
 
-%type <node>	syntax_extension_block
+%type <node>	syntax_extension_parse_block opt_syntax_extension_apply_block
 %type <str>	opt_parser_name
 
 %type <node>	func_application func_expr_common_subexpr
@@ -1108,7 +1108,7 @@ stmt:
 			| RuleStmt
 			| SecLabelStmt
 			| SelectStmt
-			| syntax_extension_block
+			| syntax_extension_parse_block
 			| TransactionStmt
 			| TruncateStmt
 			| UnlistenStmt
@@ -3816,7 +3816,7 @@ TypedTableElement:
 			| TableConstraint					{ $$ = $1; }
 		;
 
-columnDef:	ColId Typename opt_column_storage opt_column_compression create_generic_options ColQualList
+columnDef:	ColId Typename opt_column_storage opt_column_compression create_generic_options ColQualList opt_syntax_extension_apply_block
 				{
 					ColumnDef *n = makeNode(ColumnDef);
 
@@ -3835,6 +3835,7 @@ columnDef:	ColId Typename opt_column_storage opt_column_compression create_gener
 					n->fdwoptions = $5;
 					SplitColQualList($6, &n->constraints, &n->collClause,
 									 yyscanner);
+					n->syntax_extension_apply = $7;
 					n->location = @1;
 					$$ = (Node *) n;
 				}
@@ -17620,10 +17621,24 @@ plassign_equals: COLON_EQUALS
 			| '='
 		;
 
-syntax_extension_block: SYNTAX EXTENSION opt_parser_name '(' Sconst ')'
+syntax_extension_parse_block: SYNTAX EXTENSION opt_parser_name '(' Sconst ')'
 				{
-				  $$ = $3 == NULL ? parse_any($5) : parse_with($5, $3);
+				  $$ = SE_ParseStatement($3, $5);
 				}
+		;
+
+opt_syntax_extension_apply_block:
+			SYNTAX EXTENSION opt_parser_name '(' Sconst ')'
+				{
+					SyntaxExtension *n = makeNode(SyntaxExtension);
+
+					n->parser_name = $3;
+					n->src = $5;
+					n->location = @5;
+
+					$$ = (Node *) n;
+				}
+			| /* EMPTY */				{ $$ = NULL; }
 		;
 
 opt_parser_name:

@@ -768,6 +768,7 @@ typedef struct ColumnDef
 	Oid			collOid;		/* collation OID (InvalidOid if not set) */
 	List	   *constraints;	/* other constraints on column */
 	List	   *fdwoptions;		/* per-column FDW options */
+	Node	   *syntax_extension_apply; /* syntax extension for this column */
 	ParseLoc	location;		/* parse location, or -1 if none/unknown */
 } ColumnDef;
 
@@ -3588,6 +3589,22 @@ typedef struct InlineCodeBlock
 	bool		langIsTrusted;	/* trusted property of the language */
 	bool		atomic;			/* atomic execution context */
 } InlineCodeBlock;
+
+/* ----------------------
+ *		Syntax Extension
+ *
+ * Raw text which will be parsed and processed during the parse tree post-processing
+ * ----------------------
+ */
+
+typedef struct SyntaxExtension
+{
+	NodeTag		type;
+	char	   *parser_name;	/* optional: name of the parser for this
+								 * syntax extension block */
+	char	   *src;			/* source text of the syntax extension block */
+	ParseLoc	location;		/* start location, or -1 if unknown */
+} SyntaxExtension;
 
 /* ----------------------
  *		CALL statement

@@ -3,11 +3,24 @@
 
 #include "nodes/parsenodes.h"
 
-typedef Node *(*user_parser)(const char *str);
+typedef struct ColumnExtensionContext
+{
+	const RangeVar *relation;	/* relation which the column is part of */
+	ColumnDef  *column;
+} ColumnExtensionContext;
 
-extern void RegisterParser(const char *name, user_parser fn);
+typedef Node *(*ParseStatementFunc) (const char *src);
+typedef void (*ProcessColumnFunc) (const char *src, ColumnExtensionContext *cxt);
 
-extern Node *parse_with(const char *str, const char *name);
-extern Node *parse_any(const char *str);
+typedef struct SyntaxExtensionParser
+{
+	ParseStatementFunc parse_statement;
+	ProcessColumnFunc process_column;
+} SyntaxExtensionParser;
+
+extern void RegisterSyntaxExtensionParser(const char *name, const SyntaxExtensionParser *parser);
+
+extern Node *SE_ParseStatement(const char *name, const char *src);
+extern void SE_ProcessColumn(const char *name, const char *src, ColumnExtensionContext *cxt);
 
 #endif							/* PARSER_EXT_H */

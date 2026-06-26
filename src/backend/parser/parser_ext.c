@@ -2,58 +2,209 @@
 
 #include "parser/parser_ext.h"
 
-typedef struct ParserEntry {
-  char const *name;
-  user_parser fn;
+#include "utils/memutils.h"
+
+typedef struct ParserEntry
+{
+	const char	*name;
+	SyntaxExtensionParser const *parser;
 } ParserEntry;
 
 static List *parser_registry = NIL;
 
-void RegisterParser(char const *name, user_parser fn) {
-  ListCell *lc;
+#define PARSER_TRY()                               \
+	do                                             \
+	{                                              \
+		MemoryContext ccxt = CurrentMemoryContext; \
+		PG_TRY();
 
-  foreach (lc, parser_registry) {
-    ParserEntry *e = lfirst(lc);
+#define PARSER_CATCH_SYNTAX_ERROR(handler)               \
+	PG_CATCH();                                          \
+	{                                                    \
+		ErrorData	 *errdata;                           \
+		MemoryContext ecxt;                              \
+                                                         \
+		ecxt	= MemoryContextSwitchTo(ccxt);           \
+		errdata = CopyErrorData();                       \
+                                                         \
+		if (errdata->sqlerrcode == ERRCODE_SYNTAX_ERROR) \
+		{                                                \
+			handler;                                     \
+			FlushErrorState();                           \
+		}                                                \
+		else                                             \
+		{                                                \
+			MemoryContextSwitchTo(ecxt);                 \
+			PG_RE_THROW();                               \
+		}                                                \
+	}                                                    \
+	PG_END_TRY();                                        \
+	}                                                    \
+	while (0)
 
-    if (strcmp(e->name, name) == 0) {
-      ereport(WARNING, (errmsg("replacing existing parser registration for \"%s\"", name)));
-      e->fn = fn;
-      return;
-    }
-  }
+static ParserEntry *
+find_parser(const char *name)
+{
+	ListCell	*lc;
+	ParserEntry *e;
 
-  ParserEntry *e = palloc(sizeof(ParserEntry));
+	foreach (lc, parser_registry)
+	{
+		e = lfirst(lc);
 
-  e->name = pstrdup(name);
-  e->fn = fn;
+		if (strcmp(e->name, name) == 0)
+		{
+			return e;
+		}
+	}
 
-  parser_registry = lappend(parser_registry, e);
+	return NULL;
 }
 
-Node *parse_with(char const *str, char const *name) {
-  ListCell *lc;
+void
+RegisterSyntaxExtensionParser(const char *name, SyntaxExtensionParser const *parser)
+{
+	ListCell	 *lc;
+	ParserEntry	 *e;
+	MemoryContext old_context;
 
-  foreach (lc, parser_registry) {
-    ParserEntry *e = lfirst(lc);
-    if (strcmp(e->name, name) == 0)
-      return e->fn(str);
-  }
+	foreach (lc, parser_registry)
+	{
+		e = lfirst(lc);
 
-  ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("unknown parser: %s", name)));
-  return NULL;
+		if (strcmp(e->name, name) == 0)
+		{
+			ereport(WARNING,
+					errmsg("replacing existing parser registration for \"%s\"",
+						   name));
+			e->parser = parser;
+			return;
+		}
+	}
+
+	old_context = MemoryContextSwitchTo(TopMemoryContext);
+
+	e = palloc(sizeof(ParserEntry));
+	e->name = pstrdup(name);
+	e->parser = parser;
+
+	parser_registry = lappend(parser_registry, e);
+
+	MemoryContextSwitchTo(old_context);
 }
 
-Node *parse_any(char const *str) {
-  ListCell *lc;
+Node *
+SE_ParseStatement(const char *name, const char *src)
+{
+	ListCell	*l;
+	ParserEntry *e;
+	Node		*n = NULL;
 
-  foreach (lc, parser_registry) {
-    ParserEntry *e = lfirst(lc);
-    Node *result = e->fn(str);
-    if (result != NULL)
-      return result;
-  }
+	if (name == NULL)
+	{
+		foreach (l, parser_registry)
+		{
+			e = lfirst(l);
+			if (e->parser->parse_statement == NULL)
+			{
+				continue;
+			}
 
-  ereport(ERROR, (errcode(ERRCODE_INTERNAL_ERROR),
-                  errmsg("none of the available parsers could parse the input")));
-  return NULL;
+			PARSER_TRY();
+			{
+				n = e->parser->parse_statement(src);
+			}
+			PARSER_CATCH_SYNTAX_ERROR({ n = NULL; });
+
+			if (n != NULL)
+			{
+				return n;
+			}
+		}
+
+		ereport(ERROR,
+				(errcode(ERRCODE_SYNTAX_ERROR),
+				 errmsg("none of the available parsers could parse the "
+						"input")));
+	}
+	else
+	{
+		e = find_parser(name);
+
+		if (e == NULL)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("unknown parser: %s", name)));
+		}
+
+		if (e->parser->parse_statement == NULL)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("parser \"%s\" does not support statements",
+							name)));
+		}
+
+		return e->parser->parse_statement(src);
+	}
+}
+
+void
+SE_ProcessColumn(const char *name, const char *src, ColumnExtensionContext *cxt)
+{
+	ListCell	*l;
+	ParserEntry *e;
+	bool		 success = false;
+
+	if (name == NULL)
+	{
+		foreach (l, parser_registry)
+		{
+			e = lfirst(l);
+			if (e->parser->process_column == NULL)
+			{
+				continue;
+			}
+
+			PARSER_TRY();
+			{
+				success = true;
+				e->parser->process_column(src, cxt);
+			}
+			PARSER_CATCH_SYNTAX_ERROR({ success = false; });
+
+			if (success)
+			{
+				return;
+			}
+		}
+
+		ereport(ERROR,
+				(errcode(ERRCODE_SYNTAX_ERROR),
+				 errmsg("none of the available parsers could parse the "
+						"input")));
+	}
+	else
+	{
+		e = find_parser(name);
+
+		if (e == NULL)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("unknown parser: %s", name)));
+		}
+
+		if (e->parser->process_column == NULL)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("parser \"%s\" does not support column "
+							"definitions",
+							name)));
+		}
+
+		e->parser->process_column(src, cxt);
+	}
 }

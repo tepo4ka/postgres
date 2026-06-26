@@ -57,6 +57,7 @@
 #include "parser/parse_target.h"
 #include "parser/parse_type.h"
 #include "parser/parse_utilcmd.h"
+#include "parser/parser_ext.h"
 #include "parser/parser.h"
 #include "rewrite/rewriteManip.h"
 #include "utils/acl.h"
@@ -1024,6 +1025,14 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 		stmt->cmds = lappend(stmt->cmds, cmd);
 
 		cxt->alist = lappend(cxt->alist, stmt);
+	}
+
+	if (column->syntax_extension_apply != NULL)
+	{
+		SyntaxExtension *se = castNode(SyntaxExtension, column->syntax_extension_apply);
+		ColumnExtensionContext se_cxt = {.relation = cxt->relation,.column = column};
+
+		SE_ProcessColumn(se->parser_name, se->src, &se_cxt);
 	}
 }
 
