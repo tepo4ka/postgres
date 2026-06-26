@@ -599,6 +599,7 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 	bool		need_notnull = false;
 	bool		disallow_noinherit_notnull = false;
 	Constraint *notnull_constraint = NULL;
+	ParseCallbackState pcbstate;
 
 	cxt->columns = lappend(cxt->columns, column);
 
@@ -1032,7 +1033,9 @@ transformColumnDefinition(CreateStmtContext *cxt, ColumnDef *column)
 		SyntaxExtension *se = castNode(SyntaxExtension, column->syntax_extension_apply);
 		ColumnExtensionContext se_cxt = {.relation = cxt->relation,.column = column};
 
+		setup_parser_errposition_callback(&pcbstate, cxt->pstate, se->location);
 		SE_ProcessColumn(se->parser_name, se->src, &se_cxt);
+		cancel_parser_errposition_callback(&pcbstate);
 	}
 }
 
