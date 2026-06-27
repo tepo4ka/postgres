@@ -1,0 +1,118 @@
+parser_ext/README
+
+Explicit Extension Blocks for Arbitrary Syntax
+==============================================
+
+This is a prototype for arbitrary syntax support via explicit extension blocks
+with user-provided parsers.
+
+Background
+----------
+
+Postgres already supports rich variety of user extensions, ranging from the
+family of procedural languages (PL/...) and to the system of code hooks.
+Support for syntax extension blocks would complement the existing
+infrastructure, allowing, among other things, experimentation with
+domain-specific languages and concise declarative annotations without changes
+to the core syntax. One can interpret it as integration of the user-provided
+parser into a subgrammar of the core parser.
+
+For instance, this would enable custom annotations for columns in CREATE
+statements such as LOW CARDINALITY N and fillfactor(10).
+
+Interface and Behavior
+----------------------
+
+The syntax for an extension block is the following:
+
+  SYNTAX EXTENSION <'optional parser name'> ('source text')
+
+Extensions can register new parser by calling
+RegisterSyntaxExtensionParser(name, parser). If a registration with the same
+name exists, the existing parser will be replaced with the provided one.
+Parser registry is local to the current session.
+
+Conceptually extension blocks can be divided into 2 categories:
+
+1. Separate statement. This is a top-level statement, like SELECT or CREATE
+TABLE, and the extension block is expected to return a Node pointer with one
+of the ...Stmt nodes. Extension-provided parsers are invoked during the
+grammatical analysis. By convention parser function responsible for such
+statement is prefixed with parse_.
+
+2. Part of non-terminal at curated entry point. Extension-provided handlers
+are invoked during the post-processing of the raw parse tree. Handlers return
+nothing: they operate on the Node corresponding to the current non-terminal,
+potentially transforming it. Handlers are also provided with supplementary
+context inferred during the post-processing. Reported errors have proper error
+position reporting. By convention such handler functions are prefixed with
+process_.
+
+As of now the only entry point is column definition, and its handlers are
+provided with ColumnDef structure and with relation which this column is
+part of.
+
+If a syntax extension block specifies a parser name, the corresponding
+parser's function is invoked. Otherwise, all registered parsers are invoked in
+order of registration until one succeeds; if a parser reports a syntax error,
+the next one is attempted, but in case of a non-syntax error execution stops.
+Note that if parser did not register function for the current context, it will
+not be considered.
+
+You may find definitions in src/include/parser/parser_ext.h and code in
+src/backend/parser/parser_ext.c.
+
+Design and Implementation Rationale
+-----------------------------------
+
+* Why such syntax?
+
+  The syntax is indeed very cumbersome, but it is in the spirit of SQL
+  keywords. Other options include:
+
+  - @{ source text @}
+
+    This would require modifying the lexer.
+
+  - WITH <'optional parser name'> ('source text')
+
+    This may be possible with GLR parser, but it is very brittle to implement.
+
+* Why handle non-terminal entry points during the post-processing?
+
+  It is true that in general these too can be processed during the grammatical
+  analysis. However, it was deemed necessary to give handlers some additional
+  context which they cannot infer otherwise, unlike the core parser. The
+  upshot of this is ABI breakage because of the new SyntaxExtension node.
+
+* TopMemoryContext is used for the parser registry. PortalContext was not
+  sufficient here, and usage of TopMemoryContext seems like a common practise
+  in cases like this.
+
+* Instead of universal dispatch for SE_... functions a set of PARSER_TRY and
+  PARSER_CATCH_SYNTAX_ERROR macros is provided. Because these functions have
+  varying signatures and return types, their semantics are context-sensitive
+  and differ across instances.
+
+Future work
+-----------
+
+Since this is a prototype, only a minimal set of features was implemented.
+Some functionality that is currently not supported, but could possibly be
+added as incremental features:
+
+* More entry points with rich context
+
+  For example, src/backend/parser/parse_utilcmd.c has non-exported
+  CreateStmtContext structure which would be very useful.
+
+* Relative error position reporting in user-provided parsers
+
+* Support for List of Nodes returned from the separate statement
+
+* Parser priority, enable/disable parser in the current session etc.
+
+
+;; Local Variables:
+;; fill-column: 78
+;; End:

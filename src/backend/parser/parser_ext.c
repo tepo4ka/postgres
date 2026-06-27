@@ -1,3 +1,15 @@
+/*-------------------------------------------------------------------------
+ *
+ * parser_ext.c
+ *	  Explicit extension blocks for arbitrary syntax.
+ *
+ *
+ * Portions Copyright (c) 2026, Cherednik David
+ *
+ * src/backend/parser/parser_ext.c
+ *
+ *-------------------------------------------------------------------------
+ */
 #include "postgres.h"
 
 #include "parser/parser_ext.h"
@@ -7,7 +19,7 @@
 typedef struct ParserEntry
 {
 	const char	*name;
-	SyntaxExtensionParser const *parser;
+	const SyntaxExtensionParser *parser;
 } ParserEntry;
 
 static List *parser_registry = NIL;
@@ -62,7 +74,7 @@ find_parser(const char *name)
 }
 
 void
-RegisterSyntaxExtensionParser(const char *name, SyntaxExtensionParser const *parser)
+RegisterSyntaxExtensionParser(const char *name, const SyntaxExtensionParser *parser)
 {
 	ListCell	 *lc;
 	ParserEntry	 *e;

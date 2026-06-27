@@ -1,3 +1,15 @@
+/*-------------------------------------------------------------------------
+ *
+ * parser_ext.h
+ *	  Explicit extension blocks for arbitrary syntax.
+ *
+ *
+ * Portions Copyright (c) 2026, Cherednik David
+ *
+ * src/include/parser/parser_ext.h
+ *
+ *-------------------------------------------------------------------------
+ */
 #ifndef PARSER_EXT_H
 #define PARSER_EXT_H
 
