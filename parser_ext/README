@@ -43,7 +43,8 @@ statement is prefixed with parse_.
 2. Part of non-terminal at curated entry point. Extension-provided handlers
 are invoked during the post-processing of the raw parse tree. Handlers return
 nothing: they operate on the Node corresponding to the current non-terminal,
-potentially transforming it. Handlers are also provided with supplementary
+potentially transforming it. Handler is responsible for preserving correct
+Node in case of an error. Handlers are also provided with supplementary
 context inferred during the post-processing. Reported errors have proper error
 position reporting. By convention such handler functions are prefixed with
 process_.
@@ -52,15 +53,16 @@ As of now the only entry point is column definition, and its handlers are
 provided with ColumnDef structure and with relation which this column is
 part of.
 
-If a syntax extension block specifies a parser name, the corresponding
-parser's function is invoked. Otherwise, all registered parsers are invoked in
-order of registration until one succeeds; if a parser reports a syntax error,
-the next one is attempted, but in case of a non-syntax error execution stops.
-Note that if parser did not register function for the current context, it will
-not be considered.
+If syntax extension block specifies parser name, the corresponding parser's
+function is invoked. Otherwise, all registered parsers are invoked in order of
+registration until one succeeds; if a parser reports a syntax error, the next
+one is attempted, but in case of a non-syntax error execution stops. Note that
+if parser did not register function for the current context, it will not be
+considered.
 
 You may find definitions in src/include/parser/parser_ext.h and code in
-src/backend/parser/parser_ext.c.
+src/backend/parser/parser_ext.c. Basic example is provided in ./parser_ext.c
+and ./parser_ext.sql.
 
 Design and Implementation Rationale
 -----------------------------------
@@ -85,8 +87,11 @@ Design and Implementation Rationale
   context which they cannot infer otherwise, unlike the core parser. The
   upshot of this is ABI breakage because of the new SyntaxExtension node.
 
+* Perhaps the top-level syntax extension block is not needed in favor of
+  SELECT parser('source text');
+
 * TopMemoryContext is used for the parser registry. PortalContext was not
-  sufficient here, and usage of TopMemoryContext seems like a common practise
+  sufficient here, and usage of TopMemoryContext seems like a common practice
   in cases like this.
 
 * Instead of universal dispatch for SE_... functions a set of PARSER_TRY and
