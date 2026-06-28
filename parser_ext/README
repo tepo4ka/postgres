@@ -109,7 +109,9 @@ added as incremental features:
 * More entry points with rich context
 
   For example, src/backend/parser/parse_utilcmd.c has non-exported
-  CreateStmtContext structure which would be very useful.
+  CreateStmtContext structure which would be very useful: in particular, its
+  cxt->alist and cxt->blist would remove the need for to_execute in the
+  aforementioned example.
 
 * Relative error position reporting in user-provided parsers
 
